@@ -1,0 +1,23 @@
+[package]
+name = "cusf_sidechain"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prost = "0.12.3"
+tonic = "0.11.0"
+
+heed = { git = "https://github.com/meilisearch/heed", tag = "v0.12.4", version = "0.12.4" }
+clap = { version = "4.5.1", features = ["derive"] }
+dirs = "5.0.1"
+bincode = "1.3.3"
+toml = "0.8.10"
+
+blake3 = "1.5.0"
+ed25519-dalek = "2.1.1"
+
+miette = { version = "7.1.0", features = ["fancy"] }
+log = "0.4.21"
+thiserror = "1.0.57"
+serde = { version = "1.0.197", features = ["derive"] }
+hex = "0.4.3"
