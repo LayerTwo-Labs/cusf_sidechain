@@ -4,7 +4,7 @@ use miette::Result;
 
 use crate::types::{Header, Transaction};
 
-struct Archive {
+pub struct Archive {
     /// Transaction number -> Transaction
     pub transactions: Database<SerdeBincode<u64>, SerdeBincode<Transaction>>,
     /// Block number -> (Header, (Transactions range))
@@ -14,11 +14,17 @@ struct Archive {
 impl Archive {
     const NUM_DBS: usize = 2;
 
-    pub fn connect(&self, header: &Header, transactions: &[Transaction]) -> Result<()> {
+    pub fn connect(
+        &self,
+        txn: &mut RwTxn,
+        header: &Header,
+        transactions: &[Transaction],
+    ) -> Result<()> {
         todo!();
     }
 
-    pub fn disconnect(&self, header: &Header, transactions: &[Transaction]) -> Result<()> {
+    // Disconnect number latest blocks.
+    pub fn disconnect(&self, txn: &mut RwTxn, number: u32) -> Result<()> {
         todo!();
     }
 }
