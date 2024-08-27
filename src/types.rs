@@ -6,35 +6,69 @@ pub const MAIN_ADDRESS_LENGTH: usize = 20;
 pub const ADDRESS_LENGTH: usize = 20;
 pub const HASH_LENGTH: usize = 32;
 
+// Most significant bit is 1 when it is a deposit and 0 when not.
+// If it is a deposit, the remaining 63 bits represent the sequence number.
+// If it is a regular outpoint, the following 55 bits represent the transaction number, and the
+// remaining 8 bits represent the index.
 #[derive(Serialize, Deserialize)]
-pub struct OutPoint {
-    // Most significant bit is 1 when it is a deposit 0 when not.
-    // Remaining 63 bits represent the sequence number of either the deposit or the transaction.
-    pub number: u64,
-    pub index: u8,
-}
+pub struct OutPoint(u64);
 
 impl Display for OutPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let deposit = match self.is_deposit() {
-            true => "d",
-            false => "r",
-        };
-        write!(f, "{}:{}:{}", deposit, self.number(), self.index)
+        if self.is_deposit() {
+            write!(f, "d:{}", self.number())
+        } else {
+            write!(f, "r:{}:{}", self.number(), self.index())
+        }
     }
 }
 
 impl OutPoint {
-    const DEPOSIT_MASK: u64 = 1u64.rotate_right(1);
-    const NUMBER_MASK: u64 = !Self::DEPOSIT_MASK;
+    const DEPOSIT_MASK: u64 = 1u64.reverse_bits();
+    const DEPOSIT_NUMBER_MASK: u64 = !Self::DEPOSIT_MASK;
+    const INDEX_MASK: u64 = 0xFF;
+    const TRANSACTION_NUMBER_MASK: u64 = !Self::DEPOSIT_MASK & !Self::INDEX_MASK;
+
+    pub fn new(deposit: bool, number: u64, index: u8) -> Self {
+        let mut payload = 0;
+        if deposit {
+            if number & Self::DEPOSIT_MASK != 0 {
+                todo!();
+            }
+            payload = number | Self::DEPOSIT_MASK;
+        } else {
+            // If the 8 most significant bits are not 8, the transaction number is invalid.
+            if number & Self::INDEX_MASK.reverse_bits() != 0 {
+                todo!();
+            }
+            payload = number << 8;
+            if payload & !Self::TRANSACTION_NUMBER_MASK != 0 {
+                todo!();
+            }
+            payload |= index as u64;
+        }
+        Self(payload)
+    }
 
     pub fn is_deposit(&self) -> bool {
-        self.number & Self::DEPOSIT_MASK != 0
+        self.0 & Self::DEPOSIT_MASK != 0
     }
 
     // Deposit number if it is a deposit, transaction number if it is a regular output.
     pub fn number(&self) -> u64 {
-        self.number & Self::NUMBER_MASK
+        if self.is_deposit() {
+            self.0 & Self::DEPOSIT_NUMBER_MASK
+        } else {
+            (self.0 & Self::TRANSACTION_NUMBER_MASK) >> 8
+        }
+    }
+
+    pub fn index(&self) -> u8 {
+        if self.is_deposit() {
+            0
+        } else {
+            (self.0 & Self::INDEX_MASK) as u8
+        }
     }
 }
 
@@ -53,7 +87,7 @@ pub enum Output {
 }
 
 impl Output {
-    pub fn value(&self) -> u64 {
+    pub fn total_value(&self) -> u64 {
         match self {
             Self::Regular { value, .. } => *value,
             Self::Withdrawal { value, fee, .. } => *value + *fee,
@@ -76,7 +110,7 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn value_out(&self) -> u64 {
-        self.outputs.iter().map(|output| output.value()).sum()
+        self.outputs.iter().map(|output| output.total_value()).sum()
     }
 }
 
@@ -98,7 +132,6 @@ impl Header {
                 .concat(),
         )
         .into();
-
         self.merkle_root == merkle_root
     }
 }

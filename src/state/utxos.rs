@@ -1,9 +1,10 @@
-use heed::types::*;
+use heed::{types::*, Env};
 use heed::{Database, RoTxn, RwTxn};
 use miette::{miette, IntoDiagnostic, Result};
 
 use crate::types::{OutPoint, Output, Transaction, ADDRESS_LENGTH};
 
+#[derive(Clone)]
 pub struct Utxos {
     utxos: Database<SerdeBincode<OutPoint>, SerdeBincode<Output>>,
     refundable_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
@@ -11,7 +12,22 @@ pub struct Utxos {
 }
 
 impl Utxos {
-    const NUM_DBS: usize = 3;
+    pub const NUM_DBS: u32 = 3;
+
+    pub fn new(env: &Env) -> Result<Self> {
+        let utxos = env.create_database(Some("utxos")).into_diagnostic()?;
+        let refundable_withdrawals = env
+            .create_database(Some("utxos_refundable_withdrawals"))
+            .into_diagnostic()?;
+        let locked_withdrawals = env
+            .create_database(Some("utxos_locked_withdrawals"))
+            .into_diagnostic()?;
+        Ok(Self {
+            utxos,
+            refundable_withdrawals,
+            locked_withdrawals,
+        })
+    }
 
     pub fn validate(&self, txn: &RoTxn, transactions: &[Transaction]) -> Result<u64> {
         todo!();

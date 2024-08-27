@@ -1,9 +1,10 @@
-use heed::types::*;
-use heed::{Database, RoTxn, RwTxn};
-use miette::Result;
+use heed::{types::*, Env};
+use heed::{Database, RwTxn};
+use miette::{IntoDiagnostic, Result};
 
 use crate::types::{Header, Transaction};
 
+#[derive(Clone)]
 pub struct Archive {
     /// Transaction number -> Transaction
     pub transactions: Database<SerdeBincode<u64>, SerdeBincode<Transaction>>,
@@ -12,7 +13,20 @@ pub struct Archive {
 }
 
 impl Archive {
-    const NUM_DBS: usize = 2;
+    pub const NUM_DBS: u32 = 2;
+
+    pub fn new(env: &Env) -> Result<Self> {
+        let transactions = env
+            .create_database(Some("archive_transactions"))
+            .into_diagnostic()?;
+        let headers = env
+            .create_database(Some("archive_headers"))
+            .into_diagnostic()?;
+        Ok(Self {
+            transactions,
+            headers,
+        })
+    }
 
     pub fn connect(
         &self,

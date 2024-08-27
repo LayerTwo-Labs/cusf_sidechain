@@ -1,9 +1,12 @@
 [package]
-name = "cusf_sidechain"
+name = "sidechain"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+sidechain_proto = { path = "../sidechain_proto" }
+bip300301_enforcer_proto = { path = "../bip300301_enforcer_proto" }
+
 prost = "0.12.3"
 tonic = "0.11.0"
 
@@ -11,7 +14,6 @@ heed = { git = "https://github.com/meilisearch/heed", tag = "v0.12.4", version =
 clap = { version = "4.5.1", features = ["derive"] }
 dirs = "5.0.1"
 bincode = "1.3.3"
-toml = "0.8.10"
 
 blake3 = "1.5.0"
 ed25519-dalek = { version = "2.1.1", features = ["batch"] }
@@ -26,6 +28,6 @@ hex = "0.4.3"
 
 quinn = "0.10.2"
 zstd = "0.13.0"
-
-[build-dependencies]
-tonic-build = "0.11.0"
+tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros"] }
+confy = "0.6.1"
+rs_merkle = "1.4.2"
