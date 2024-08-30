@@ -72,7 +72,7 @@ impl OutPoint {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Output {
     Regular {
         address: [u8; ADDRESS_LENGTH],
@@ -99,6 +99,26 @@ impl Output {
         match self {
             Self::Regular { address, .. } => *address,
             Self::Withdrawal { address, .. } => *address,
+        }
+    }
+}
+
+impl Display for Output {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Regular { address, value } => {
+                let address = bs58::encode(&address).with_check().into_string();
+                let value = bitcoin::Amount::from_sat(*value);
+                write!(f, "{address}: {value}")
+            }
+            Self::Withdrawal {
+                address,
+                main_address,
+                value,
+                fee,
+            } => {
+                todo!();
+            }
         }
     }
 }

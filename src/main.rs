@@ -13,22 +13,6 @@ use types::{Hashable, OutPoint, Output, ADDRESS_LENGTH};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let outpoint = OutPoint::new(true, 1002, 99);
-
-    let output = Output::Regular {
-        address: [0; ADDRESS_LENGTH],
-        value: 0,
-    };
-
-    let outpoint_bytes = bincode::serialize(&outpoint).into_diagnostic()?;
-    let output_bytes = bincode::serialize(&output).into_diagnostic()?;
-
-    println!("{outpoint}");
-    dbg!(outpoint_bytes.len());
-    dbg!(output_bytes.len());
-    dbg!(hex::encode(outpoint.hash()));
-    dbg!(hex::encode(output.hash()));
-    dbg!(hex::encode(output.address()));
     let datadir = dirs::data_dir()
         .ok_or(miette!("couldn't get datadir"))?
         .join("cusf_sidechain");

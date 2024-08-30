@@ -41,15 +41,7 @@ impl Node {
             .into_diagnostic()?
             .into_inner()
             .deposits;
-
-        for deposit in deposits {
-            let outpoint = OutPoint::new(true, deposit.sequence_number, 0);
-            println!("{outpoint}");
-            let output = Output::Regular {
-                address: [0; 20],
-                value: deposit.value,
-            };
-        }
+        self.state.load_deposits(&deposits)?;
         Ok(())
     }
 
