@@ -29,6 +29,16 @@ impl Utxos {
         })
     }
 
+    pub fn add_utxo(&self, txn: &mut RwTxn, outpoint: &OutPoint, output: &Output) -> Result<()> {
+        self.utxos.put(txn, outpoint, output).into_diagnostic()?;
+        Ok(())
+    }
+
+    pub fn remove_utxo(&self, txn: &mut RwTxn, outpoint: &OutPoint) -> Result<()> {
+        self.utxos.delete(txn, outpoint).into_diagnostic()?;
+        Ok(())
+    }
+
     pub fn validate(&self, txn: &RoTxn, transactions: &[Transaction]) -> Result<u64> {
         todo!();
     }

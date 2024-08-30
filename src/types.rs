@@ -80,6 +80,7 @@ pub enum Output {
     },
     Withdrawal {
         address: [u8; ADDRESS_LENGTH],
+        // Must be P2PKH.
         main_address: [u8; MAIN_ADDRESS_LENGTH],
         value: u64,
         fee: u64,
@@ -120,6 +121,13 @@ pub struct Header {
     pub prev_side_block_hash: [u8; HASH_LENGTH],
     pub merkle_root: [u8; HASH_LENGTH],
 }
+
+// 6000 withdrawals
+//
+// Deposits
+// BMM
+// Transactions
+// Wihdrawals
 
 impl Header {
     fn validate_transactions(&self, transactions: &[Transaction]) -> bool {

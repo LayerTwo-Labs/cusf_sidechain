@@ -1,10 +1,13 @@
-use bip300301_enforcer_proto::validator::validator_client::ValidatorClient;
+use bip300301_enforcer_proto::validator::{validator_client::ValidatorClient, GetDepositsRequest};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tonic::transport::Channel;
 
-use crate::state::State;
+use crate::{
+    state::State,
+    types::{OutPoint, Output},
+};
 
 #[derive(Clone)]
 pub struct Node {
@@ -26,6 +29,28 @@ impl Node {
             state,
             client,
         })
+    }
+
+    pub async fn initial_sync(&mut self) -> Result<()> {
+        let deposits = self
+            .client
+            .get_deposits(GetDepositsRequest {
+                sidechain_number: 0,
+            })
+            .await
+            .into_diagnostic()?
+            .into_inner()
+            .deposits;
+
+        for deposit in deposits {
+            let outpoint = OutPoint::new(true, deposit.sequence_number, 0);
+            println!("{outpoint}");
+            let output = Output::Regular {
+                address: [0; 20],
+                value: deposit.value,
+            };
+        }
+        Ok(())
     }
 
     fn run(&self) -> Result<()> {

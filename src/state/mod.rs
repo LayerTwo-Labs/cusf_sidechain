@@ -5,6 +5,7 @@ mod utxos;
 use std::path::Path;
 
 use archive::Archive;
+use bip300301_enforcer_proto::validator::Deposit;
 use heed::{Env, EnvOpenOptions};
 use mempool::Mempool;
 use miette::{IntoDiagnostic, Result};
@@ -35,6 +36,10 @@ impl State {
             archive,
             utxos,
         })
+    }
+
+    fn load_deposits(&self, deposits: &[Deposit]) -> Result<()> {
+        todo!();
     }
 
     fn is_valid(&self, header: &Header, transactions: &[Transaction]) -> Result<()> {

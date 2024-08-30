@@ -29,11 +29,11 @@ async fn main() -> Result<()> {
     dbg!(hex::encode(outpoint.hash()));
     dbg!(hex::encode(output.hash()));
     dbg!(hex::encode(output.address()));
-
     let datadir = dirs::data_dir()
         .ok_or(miette!("couldn't get datadir"))?
         .join("cusf_sidechain");
-    let node = Node::new(&datadir).await?;
+    let mut node = Node::new(&datadir).await?;
+    node.initial_sync().await?;
     let plain = server::Plain::new(node);
     let addr = "[::1]:50052".parse().into_diagnostic()?;
     println!("Listening for gRPC on {addr}");
@@ -45,3 +45,6 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+// 1. Get an array of all deposits from the BIP300301 enforcer
+// 2. Load all the deposits into the UTXO set database
