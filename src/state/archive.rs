@@ -6,7 +6,7 @@ use crate::types::{Header, Transaction};
 
 #[derive(Clone)]
 pub struct Archive {
-    /// Transaction number -> Transaction
+    /// Transaction sequence number -> Transaction
     pub transactions: Database<SerdeBincode<u64>, SerdeBincode<Transaction>>,
     /// Block number -> (Header, (Transactions range))
     pub headers: Database<SerdeBincode<u32>, SerdeBincode<(Header, (u64, u64))>>,

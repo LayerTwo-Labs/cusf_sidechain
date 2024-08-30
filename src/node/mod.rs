@@ -1,13 +1,12 @@
-use bip300301_enforcer_proto::validator::{validator_client::ValidatorClient, GetDepositsRequest};
+use bip300301_enforcer_proto::validator::{
+    validator_client::ValidatorClient, GetDepositsRequest, GetMainBlockHeightRequest,
+};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tonic::transport::Channel;
 
-use crate::{
-    state::State,
-    types::{OutPoint, Output},
-};
+use crate::state::State;
 
 #[derive(Clone)]
 pub struct Node {
@@ -18,7 +17,6 @@ pub struct Node {
 
 impl Node {
     pub async fn new(datadir: &Path) -> Result<Self> {
-        let config_str = std::fs::read_to_string(datadir.join("config.toml")).into_diagnostic()?;
         let config = confy::load("cusf_sidechain", None).into_diagnostic()?;
         let state = State::new(datadir)?;
         let client = ValidatorClient::connect("http://[::1]:50051")
@@ -31,6 +29,10 @@ impl Node {
         })
     }
 
+    pub fn is_clean(&self) -> Result<bool> {
+        self.state.is_clean()
+    }
+
     pub async fn initial_sync(&mut self) -> Result<()> {
         let deposits = self
             .client
@@ -41,7 +43,15 @@ impl Node {
             .into_diagnostic()?
             .into_inner()
             .deposits;
-        self.state.load_deposits(&deposits)?;
+        let main_block_height = self
+            .client
+            .get_main_block_height(GetMainBlockHeightRequest {})
+            .await
+            .into_diagnostic()?
+            .into_inner()
+            .height;
+        dbg!(main_block_height);
+        self.state.load_deposits(&deposits, main_block_height)?;
         Ok(())
     }
 

@@ -9,7 +9,6 @@ use miette::{miette, IntoDiagnostic, Result};
 use node::Node;
 use sidechain_proto::sidechain::sidechain_server::SidechainServer;
 use tonic::transport::Server;
-use types::{Hashable, OutPoint, Output, ADDRESS_LENGTH};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,7 +16,9 @@ async fn main() -> Result<()> {
         .ok_or(miette!("couldn't get datadir"))?
         .join("cusf_sidechain");
     let mut node = Node::new(&datadir).await?;
-    node.initial_sync().await?;
+    if node.is_clean()? {
+        node.initial_sync().await?;
+    }
     let plain = server::Plain::new(node);
     let addr = "[::1]:50052".parse().into_diagnostic()?;
     println!("Listening for gRPC on {addr}");

@@ -38,10 +38,17 @@ impl State {
         })
     }
 
-    pub fn load_deposits(&self, deposits: &[Deposit]) -> Result<()> {
+    pub fn is_clean(&self) -> Result<bool> {
+        let txn = self.env.read_txn().into_diagnostic()?;
+        self.utxos.is_empty(&txn)
+    }
+
+    pub fn load_deposits(&self, deposits: &[Deposit], main_block_height: u32) -> Result<()> {
         let mut txn = self.env.write_txn().into_diagnostic()?;
         for deposit in deposits {
-            let outpoint = OutPoint::new(true, deposit.sequence_number, 0);
+            let outpoint = OutPoint::Deposit {
+                sequence_number: deposit.sequence_number,
+            };
             let output = Output::Regular {
                 address: deposit.address.clone().try_into().unwrap(),
                 value: deposit.value,
@@ -49,6 +56,8 @@ impl State {
             self.utxos.add_utxo(&mut txn, &outpoint, &output)?;
             println!("{outpoint} -> {output}");
         }
+        self.utxos
+            .set_main_block_height(&mut txn, main_block_height)?;
         txn.commit().into_diagnostic()?;
         Ok(())
     }
