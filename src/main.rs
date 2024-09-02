@@ -29,6 +29,3 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
-// 1. Get an array of all deposits from the BIP300301 enforcer
-// 2. Load all the deposits into the UTXO set database
