@@ -1,7 +1,8 @@
-use heed::{types::*, Env};
+use cusf_sidechain_types::{Hashable, Transaction, BLOCK_SIZE_LIMIT, HASH_LENGTH};
+use heed::{types::*, Env, RoTxn};
 use heed::{Database, RwTxn};
 use miette::{miette, IntoDiagnostic, Result};
-use cusf_sidechain_types::{Hashable, Transaction, HASH_LENGTH};
+use std::collections::HashSet;
 use std::time::SystemTime;
 
 #[derive(Clone)]
@@ -28,6 +29,48 @@ impl Mempool {
             hash_to_transaction_fee_timestamp,
             fee_to_hashes_sizes_timestamps,
         })
+    }
+
+    pub fn collect_transactions(&self, txn: &RoTxn) -> Result<Vec<Transaction>> {
+        let mut spent_utxos = HashSet::new();
+        let mut transactions = vec![];
+        for item in self
+            .fee_to_hashes_sizes_timestamps
+            .rev_iter(txn)
+            .into_diagnostic()?
+        {
+            let (_fee, hashes_sizes_timestamps) = item.into_diagnostic()?;
+            let transactions_bytes = bincode::serialize(&transactions).into_diagnostic()?;
+            let block_size = transactions_bytes.len();
+            'outer: for (hash, size, _timestamp) in hashes_sizes_timestamps {
+                if block_size + size as usize > BLOCK_SIZE_LIMIT {
+                    break;
+                }
+                let (transaction, fee, timestamp) = self
+                    .hash_to_transaction_fee_timestamp
+                    .get(txn, &hash)
+                    .into_diagnostic()?
+                    .ok_or(miette!("transaction doesn't exist"))?;
+                for input in &transaction.inputs {
+                    if spent_utxos.contains(input) {
+                        // If we see a transaction that spends the same utxo as an already included
+                        // transaction, we always keep the already included transaction, because it
+                        // is more desirable because it has the higher fee, smaller size, or is
+                        // older.
+                        //
+                        // The transactions in the mempool are sorted by fee, size, and timestamp,
+                        // and we are iterating in order, that is why the previously included
+                        // transaction is always more desirable.
+                        continue 'outer;
+                    }
+                }
+                for input in &transaction.inputs {
+                    spent_utxos.insert(input.clone());
+                }
+                transactions.push(transaction);
+            }
+        }
+        Ok(transactions)
     }
 
     pub fn submit_transaction(

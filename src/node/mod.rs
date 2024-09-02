@@ -23,6 +23,8 @@ impl Node {
         let client = ValidatorClient::connect("http://[::1]:50051")
             .await
             .into_diagnostic()?;
+        let transactions = state.collect_transactions()?;
+        dbg!(transactions);
         Ok(Self {
             config,
             state,

@@ -43,6 +43,12 @@ impl State {
         self.utxos.is_empty(&txn)
     }
 
+    pub fn collect_transactions(&self) -> Result<Vec<Transaction>> {
+        let txn = self.env.read_txn().into_diagnostic()?;
+        let transactions = self.mempool.collect_transactions(&txn)?;
+        Ok(transactions)
+    }
+
     pub fn submit_transaction(&self, transaction: &Transaction) -> Result<()> {
         let mut txn = self.env.write_txn().into_diagnostic()?;
         let fee = self.utxos.get_transaction_fee(&txn, transaction)?;
