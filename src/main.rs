@@ -3,11 +3,10 @@ mod net;
 mod node;
 mod server;
 mod state;
-mod types;
 
 use miette::{miette, IntoDiagnostic, Result};
 use node::Node;
-use sidechain_proto::sidechain::sidechain_server::SidechainServer;
+use cusf_sidechain_proto::sidechain::sidechain_server::SidechainServer;
 use tonic::transport::Server;
 
 #[tokio::main]

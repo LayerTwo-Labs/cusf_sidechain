@@ -2,7 +2,7 @@ use heed::{types::*, Env};
 use heed::{Database, RwTxn};
 use miette::{IntoDiagnostic, Result};
 
-use crate::types::{Header, Transaction};
+use cusf_sidechain_types::{Header, Transaction};
 
 #[derive(Clone)]
 pub struct Archive {

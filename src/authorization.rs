@@ -1,7 +1,6 @@
+use cusf_sidechain_types::ADDRESS_LENGTH;
 use miette::Result;
 use serde::{Deserialize, Serialize};
-
-use crate::types::ADDRESS_LENGTH;
 
 #[derive(Serialize, Deserialize)]
 struct Authorization {}

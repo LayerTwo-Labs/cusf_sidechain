@@ -11,7 +11,7 @@ use mempool::Mempool;
 use miette::{IntoDiagnostic, Result};
 use utxos::Utxos;
 
-use crate::types::{Header, OutPoint, Output, Transaction};
+use cusf_sidechain_types::{Header, OutPoint, Output, Transaction};
 
 #[derive(Clone)]
 pub struct State {
@@ -41,6 +41,15 @@ impl State {
     pub fn is_clean(&self) -> Result<bool> {
         let txn = self.env.read_txn().into_diagnostic()?;
         self.utxos.is_empty(&txn)
+    }
+
+    pub fn submit_transaction(&self, transaction: &Transaction) -> Result<()> {
+        let mut txn = self.env.write_txn().into_diagnostic()?;
+        let fee = self.utxos.get_transaction_fee(&txn, transaction)?;
+        self.mempool
+            .submit_transaction(&mut txn, transaction, fee)?;
+        txn.commit().into_diagnostic()?;
+        Ok(())
     }
 
     pub fn load_deposits(&self, deposits: &[Deposit], main_block_height: u32) -> Result<()> {

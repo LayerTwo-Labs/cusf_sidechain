@@ -1,8 +1,8 @@
-use crate::types::{OutPoint, Output, Transaction, ADDRESS_LENGTH};
 use heed::{types::*, Env};
 use heed::{Database, RoTxn, RwTxn};
 use miette::{miette, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
+use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH};
 
 /// Unit key. LMDB can't use zero-sized keys, so this encodes to a single byte
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -122,6 +122,23 @@ impl Utxos {
     /// Performs no validation, assumes that all transactions are valid.
     pub fn disconnect(&self, txn: &mut RwTxn, transactions: &[Transaction]) -> Result<()> {
         todo!();
+    }
+
+    pub fn get_transaction_fee(&self, txn: &RoTxn, transaction: &Transaction) -> Result<u64> {
+        let mut value_in = 0;
+        for input in &transaction.inputs {
+            let spent_utxo = self
+                .utxos
+                .get(&txn, &input)
+                .into_diagnostic()?
+                .ok_or(miette!("transaction is invalid"))?;
+            value_in += spent_utxo.total_value();
+        }
+        let value_out = transaction.value_out();
+        if value_in < value_out {
+            return Err(miette!("transaction is invalid"));
+        }
+        Ok(value_in - value_out)
     }
 
     pub fn extract_input_addresses(
