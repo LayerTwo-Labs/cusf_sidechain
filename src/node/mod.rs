@@ -1,7 +1,7 @@
 use bip300301_enforcer_proto::validator::{
     validator_client::ValidatorClient, GetDepositsRequest, GetMainBlockHeightRequest,
 };
-use cusf_sidechain_types::Transaction;
+use cusf_sidechain_types::{Header, Transaction};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -34,6 +34,16 @@ impl Node {
 
     pub fn is_clean(&self) -> Result<bool> {
         self.state.is_clean()
+    }
+
+    pub fn get_next_block(&self) -> Result<(Header, Vec<Transaction>)> {
+        let header = Header {
+            prev_main_block_hash: [0; 32],
+            prev_side_block_hash: [0; 32],
+            merkle_root: [0; 32],
+        };
+        let transactions = self.state.collect_transactions()?;
+        Ok((header, transactions))
     }
 
     pub fn submit_transaction(&self, transaction: &Transaction) -> Result<()> {
