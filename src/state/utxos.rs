@@ -1,8 +1,10 @@
+use std::collections::HashSet;
+
+use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH};
 use heed::{types::*, Env};
 use heed::{Database, RoTxn, RwTxn};
 use miette::{miette, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH};
 
 /// Unit key. LMDB can't use zero-sized keys, so this encodes to a single byte
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -32,6 +34,7 @@ impl Serialize for UnitKey {
 #[derive(Clone)]
 pub struct Utxos {
     utxos: Database<SerdeBincode<OutPoint>, SerdeBincode<Output>>,
+    transaction_number: Database<SerdeBincode<UnitKey>, SerdeBincode<u64>>,
     main_block_height: Database<SerdeBincode<UnitKey>, SerdeBincode<u32>>,
     side_block_height: Database<SerdeBincode<UnitKey>, SerdeBincode<u32>>,
     refundable_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
@@ -39,10 +42,13 @@ pub struct Utxos {
 }
 
 impl Utxos {
-    pub const NUM_DBS: u32 = 5;
+    pub const NUM_DBS: u32 = 6;
 
     pub fn new(env: &Env) -> Result<Self> {
         let utxos = env.create_database(Some("utxos")).into_diagnostic()?;
+        let transaction_number = env
+            .create_database(Some("transaction_number"))
+            .into_diagnostic()?;
         let main_block_height = env
             .create_database(Some("main_block_height"))
             .into_diagnostic()?;
@@ -57,6 +63,7 @@ impl Utxos {
             .into_diagnostic()?;
         Ok(Self {
             utxos,
+            transaction_number,
             main_block_height,
             side_block_height,
             refundable_withdrawals,
@@ -110,13 +117,56 @@ impl Utxos {
         Ok(())
     }
 
-    pub fn validate(&self, txn: &RoTxn, transactions: &[Transaction]) -> Result<u64> {
-        todo!();
+    pub fn validate(&self, txn: &RoTxn, transactions: &[Transaction]) -> Result<bool> {
+        let mut spent_utxos = HashSet::new();
+        for transaction in transactions {
+            let mut value_in = 0;
+            for input in &transaction.inputs {
+                if spent_utxos.contains(input) {
+                    return Ok(false);
+                }
+                let spent_utxo = self.utxos.get(txn, input).into_diagnostic()?;
+                let value = match spent_utxo {
+                    Some(spent_utxo) => spent_utxo.total_value(),
+                    None => {
+                        return Ok(false);
+                    }
+                };
+                value_in += value;
+                spent_utxos.insert(input);
+            }
+            let value_out = transaction.value_out();
+            if value_out > value_in {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     /// Performs no validation, assumes that all transactions are valid.
     pub fn connect(&self, txn: &mut RwTxn, transactions: &[Transaction]) -> Result<()> {
-        todo!();
+        let transaction_number = self
+            .transaction_number
+            .get(txn, &UnitKey)
+            .into_diagnostic()?;
+        let mut transaction_number = match transaction_number {
+            Some(transaction_number) => transaction_number + 1,
+            None => 0,
+        };
+        for transaction in transactions {
+            for input in &transaction.inputs {
+                self.utxos.delete(txn, &input).into_diagnostic()?;
+            }
+            for (output_number, output) in transaction.outputs.iter().enumerate() {
+                let outpoint = OutPoint::Regular {
+                    transaction_number,
+                    output_number: output_number as u8,
+                };
+                self.utxos.put(txn, &outpoint, &output).into_diagnostic()?;
+            }
+            transaction_number += 1;
+        }
+        Ok(())
     }
 
     /// Performs no validation, assumes that all transactions are valid.
