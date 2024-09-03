@@ -1,9 +1,9 @@
 use bitcoin::block;
-use heed::{types::*, Env};
+use heed::{types::*, Env, RoTxn};
 use heed::{Database, RwTxn};
 use miette::{IntoDiagnostic, Result};
 
-use cusf_sidechain_types::{Header, Transaction};
+use cusf_sidechain_types::{Header, Transaction, HASH_LENGTH};
 
 #[derive(Clone)]
 pub struct Archive {
@@ -27,6 +27,10 @@ impl Archive {
             transactions,
             headers,
         })
+    }
+
+    pub fn get_chain_tip(&self, txn: &RoTxn) -> Result<Option<(u32, (Header, (u64, u64)))>> {
+        Ok(self.headers.last(txn).into_diagnostic()?)
     }
 
     pub fn connect(

@@ -35,7 +35,7 @@ impl Sidechain for Plain {
         &self,
         request: Request<GetNextBlockRequest>,
     ) -> Result<Response<GetNextBlockResponse>, Status> {
-        let block = self.node.get_next_block().unwrap();
+        let block = self.node.get_next_block().await.unwrap();
         let block_bytes = bincode::serialize(&block).unwrap();
         let response = GetNextBlockResponse { block: block_bytes };
         Ok(Response::new(response))

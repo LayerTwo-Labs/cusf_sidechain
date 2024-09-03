@@ -241,7 +241,7 @@ dependencies = [
 [[package]]
 name = "bip300301_enforcer_proto"
 version = "0.1.0"
-source = "git+https://github.com/LayerTwo-Labs/bip300301_enforcer_proto#26a220ae23ca0a7d6e6a612db2aaee05ee6decc2"
+source = "git+https://github.com/LayerTwo-Labs/bip300301_enforcer_proto#f1f6635d67e387e52e36c38e7d12eb489b90286e"
 dependencies = [
  "prost",
  "tonic",
@@ -590,7 +590,7 @@ dependencies = [
 [[package]]
 name = "cusf_sidechain_types"
 version = "0.1.0"
-source = "git+https://github.com/LayerTwo-Labs/cusf_sidechain_types#8e5a24fdf52fd911f6fada9a1371a47dd2b7aa60"
+source = "git+https://github.com/LayerTwo-Labs/cusf_sidechain_types#daeacaee7728e99567521dedf86ec16a3c48c64d"
 dependencies = [
  "bincode",
  "bitcoin",

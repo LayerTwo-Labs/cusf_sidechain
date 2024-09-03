@@ -1,7 +1,8 @@
 use bip300301_enforcer_proto::validator::{
     validator_client::ValidatorClient, GetDepositsRequest, GetMainBlockHeightRequest,
+    GetMainChainTipRequest, GetMainChainTipResponse,
 };
-use cusf_sidechain_types::{Header, Transaction};
+use cusf_sidechain_types::{Hashable, Header, Transaction, HASH_LENGTH};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -36,13 +37,22 @@ impl Node {
         self.state.is_clean()
     }
 
-    pub fn get_next_block(&self) -> Result<(Header, Vec<Transaction>)> {
-        let header = Header {
-            prev_main_block_hash: [0; 32],
-            prev_side_block_hash: [0; 32],
-            merkle_root: [0; 32],
-        };
+    pub async fn get_next_block(&self) -> Result<(Header, Vec<Transaction>)> {
         let transactions = self.state.collect_transactions()?;
+        let merkle_root = Header::compute_merkle_root(&transactions);
+        let chain_tip = self.state.get_chain_tip()?;
+        let prev_side_block_hash = match chain_tip {
+            Some((_block_height, (header, (_transaction_range_start, _transaction_range_end)))) => {
+                header.hash()
+            }
+            None => [0; HASH_LENGTH],
+        };
+        let prev_main_block_hash = self.state.get_main_chain_tip()?;
+        let header = Header {
+            prev_main_block_hash,
+            prev_side_block_hash,
+            merkle_root,
+        };
         Ok((header, transactions))
     }
 
@@ -68,8 +78,16 @@ impl Node {
             .into_diagnostic()?
             .into_inner()
             .height;
-        dbg!(main_block_height);
-        self.state.load_deposits(&deposits, main_block_height)?;
+        let main_chain_tip = self
+            .client
+            .get_main_chain_tip(GetMainChainTipRequest {})
+            .await
+            .into_diagnostic()?
+            .into_inner()
+            .block_hash;
+        let main_chain_tip: [u8; HASH_LENGTH] = main_chain_tip.try_into().unwrap();
+        self.state
+            .load_deposits(&deposits, main_block_height, &main_chain_tip)?;
         Ok(())
     }
 

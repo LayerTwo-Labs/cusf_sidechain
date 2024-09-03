@@ -4,9 +4,10 @@ mod node;
 mod server;
 mod state;
 
+use cusf_sidechain_proto::sidechain::sidechain_server::SidechainServer;
+use cusf_sidechain_types::Hashable;
 use miette::{miette, IntoDiagnostic, Result};
 use node::Node;
-use cusf_sidechain_proto::sidechain::sidechain_server::SidechainServer;
 use tonic::transport::Server;
 
 #[tokio::main]

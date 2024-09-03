@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH};
+use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH, HASH_LENGTH};
 use heed::{types::*, Env};
 use heed::{Database, RoTxn, RwTxn};
 use miette::{miette, IntoDiagnostic, Result};
@@ -36,13 +36,14 @@ pub struct Utxos {
     utxos: Database<SerdeBincode<OutPoint>, SerdeBincode<Output>>,
     transaction_number: Database<SerdeBincode<UnitKey>, SerdeBincode<u64>>,
     main_block_height: Database<SerdeBincode<UnitKey>, SerdeBincode<u32>>,
+    main_chain_tip: Database<SerdeBincode<UnitKey>, SerdeBincode<[u8; HASH_LENGTH]>>,
     side_block_height: Database<SerdeBincode<UnitKey>, SerdeBincode<u32>>,
     refundable_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
     locked_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
 }
 
 impl Utxos {
-    pub const NUM_DBS: u32 = 6;
+    pub const NUM_DBS: u32 = 7;
 
     pub fn new(env: &Env) -> Result<Self> {
         let utxos = env.create_database(Some("utxos")).into_diagnostic()?;
@@ -51,6 +52,9 @@ impl Utxos {
             .into_diagnostic()?;
         let main_block_height = env
             .create_database(Some("main_block_height"))
+            .into_diagnostic()?;
+        let main_chain_tip = env
+            .create_database(Some("main_chain_tip"))
             .into_diagnostic()?;
         let side_block_height = env
             .create_database(Some("side_block_height"))
@@ -65,6 +69,7 @@ impl Utxos {
             utxos,
             transaction_number,
             main_block_height,
+            main_chain_tip,
             side_block_height,
             refundable_withdrawals,
             locked_withdrawals,
@@ -83,6 +88,26 @@ impl Utxos {
     pub fn set_main_block_height(&self, txn: &mut RwTxn, height: u32) -> Result<()> {
         self.main_block_height
             .put(txn, &UnitKey, &height)
+            .into_diagnostic()?;
+        Ok(())
+    }
+
+    pub fn get_main_chain_tip(&self, txn: &RoTxn) -> Result<[u8; HASH_LENGTH]> {
+        let height = self
+            .main_chain_tip
+            .get(txn, &UnitKey)
+            .into_diagnostic()?
+            .unwrap_or([0; HASH_LENGTH]);
+        Ok(height)
+    }
+
+    pub fn set_main_chain_tip(
+        &self,
+        txn: &mut RwTxn,
+        block_hash: &[u8; HASH_LENGTH],
+    ) -> Result<()> {
+        self.main_chain_tip
+            .put(txn, &UnitKey, &block_hash)
             .into_diagnostic()?;
         Ok(())
     }

@@ -11,7 +11,7 @@ use mempool::Mempool;
 use miette::{IntoDiagnostic, Result};
 use utxos::Utxos;
 
-use cusf_sidechain_types::{Header, OutPoint, Output, Transaction};
+use cusf_sidechain_types::{Header, OutPoint, Output, Transaction, HASH_LENGTH};
 
 #[derive(Clone)]
 pub struct State {
@@ -43,6 +43,18 @@ impl State {
         self.utxos.is_empty(&txn)
     }
 
+    pub fn get_chain_tip(&self) -> Result<Option<(u32, (Header, (u64, u64)))>> {
+        let txn = self.env.read_txn().into_diagnostic()?;
+        let chain_tip = self.archive.get_chain_tip(&txn)?;
+        Ok(chain_tip)
+    }
+
+    pub fn get_main_chain_tip(&self) -> Result<[u8; HASH_LENGTH]> {
+        let txn = self.env.read_txn().into_diagnostic()?;
+        let chain_tip = self.utxos.get_main_chain_tip(&txn)?;
+        Ok(chain_tip)
+    }
+
     pub fn collect_transactions(&self) -> Result<Vec<Transaction>> {
         let txn = self.env.read_txn().into_diagnostic()?;
         let transactions = self.mempool.collect_transactions(&txn)?;
@@ -58,7 +70,12 @@ impl State {
         Ok(())
     }
 
-    pub fn load_deposits(&self, deposits: &[Deposit], main_block_height: u32) -> Result<()> {
+    pub fn load_deposits(
+        &self,
+        deposits: &[Deposit],
+        main_block_height: u32,
+        main_chain_tip: &[u8; HASH_LENGTH],
+    ) -> Result<()> {
         let mut txn = self.env.write_txn().into_diagnostic()?;
         for deposit in deposits {
             let outpoint = OutPoint::Deposit {
@@ -73,6 +90,7 @@ impl State {
         }
         self.utxos
             .set_main_block_height(&mut txn, main_block_height)?;
+        self.utxos.set_main_chain_tip(&mut txn, main_chain_tip)?;
         txn.commit().into_diagnostic()?;
         Ok(())
     }
