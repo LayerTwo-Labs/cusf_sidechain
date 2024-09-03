@@ -96,13 +96,6 @@ impl Utxos {
         Ok(height)
     }
 
-    pub fn set_side_block_height(&self, txn: &mut RwTxn, height: u32) -> Result<()> {
-        self.side_block_height
-            .put(txn, &UnitKey, &height)
-            .into_diagnostic()?;
-        Ok(())
-    }
-
     pub fn is_empty(&self, txn: &RoTxn) -> Result<bool> {
         self.utxos.is_empty(txn).into_diagnostic()
     }
@@ -166,6 +159,17 @@ impl Utxos {
             }
             transaction_number += 1;
         }
+        let side_block_height = self
+            .side_block_height
+            .get(txn, &UnitKey)
+            .into_diagnostic()?;
+        let side_block_height = match side_block_height {
+            Some(side_block_height) => side_block_height + 1,
+            None => 0,
+        };
+        self.side_block_height
+            .put(txn, &UnitKey, &side_block_height)
+            .into_diagnostic()?;
         Ok(())
     }
 
