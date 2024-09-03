@@ -156,6 +156,11 @@ impl Utxos {
                     output_number: output_number as u8,
                 };
                 self.utxos.put(txn, &outpoint, &output).into_diagnostic()?;
+                if matches!(output, Output::Withdrawal { .. }) {
+                    self.refundable_withdrawals
+                        .put(txn, &outpoint, &())
+                        .into_diagnostic()?;
+                }
             }
             transaction_number += 1;
         }
