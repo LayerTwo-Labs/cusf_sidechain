@@ -135,8 +135,15 @@ impl Utxos {
         Ok(())
     }
 
-    pub fn validate(&self, txn: &RoTxn, transactions: &[Transaction]) -> Result<bool> {
+    // FIXME: Maybe return an error instead of Ok(false)?
+    pub fn validate(
+        &self,
+        txn: &RoTxn,
+        coinbase: &[Output],
+        transactions: &[Transaction],
+    ) -> Result<bool> {
         let mut spent_utxos = HashSet::new();
+        let mut total_fees = 0;
         for transaction in transactions {
             let mut value_in = 0;
             for input in &transaction.inputs {
@@ -157,6 +164,12 @@ impl Utxos {
             if value_out > value_in {
                 return Ok(false);
             }
+            let fee = value_in - value_out;
+            total_fees += fee;
+        }
+        let coinbase_value: u64 = coinbase.iter().map(|output| output.total_value()).sum();
+        if coinbase_value > total_fees {
+            return Ok(false);
         }
         Ok(true)
     }
@@ -235,12 +248,55 @@ impl Utxos {
         todo!();
     }
 
-    pub fn collect_withdrawals(&self, txn: &mut RwTxn) -> Result<()> {
-        for item in self.locked_withdrawals.iter(txn).into_diagnostic()? {
-            let (outpoint, ()) = item.into_diagnostic()?;
-            let output = self.utxos.get(txn, &outpoint).into_diagnostic()?;
-        }
+    pub fn get_pending_withdrawal_bundle(&self, txn: &RoTxn) -> Result<()> {
         todo!();
+    }
+
+    pub fn collect_withdrawals(&self, txn: &mut RwTxn) -> Result<()> {
+        if !self.locked_withdrawals.is_empty(txn).into_diagnostic()? {
+            return Err(miette!("there is already a withdrawal bundle pending"));
+        }
+        let mut bundle = vec![];
+        for item in self.unlocked_withdrawals.iter(txn).into_diagnostic()? {
+            let (outpoint, ()) = item.into_diagnostic()?;
+            let output = self
+                .utxos
+                .get(txn, &outpoint)
+                .into_diagnostic()?
+                .ok_or(miette!("no withdrawal utxo"))?;
+            bundle.push((outpoint, output));
+        }
+        // TODO: Aggregate withdrawals to the same address.
+        // FIXME: Figure out if this is determenistic.
+        bundle.sort_unstable_by(|(_, a), (_, b)| {
+            let a_fee = match a {
+                Output::Withdrawal { fee, .. } => fee,
+                _ => {
+                    panic!("not a withdrawal");
+                }
+            };
+            let b_fee = match b {
+                Output::Withdrawal { fee, .. } => fee,
+                _ => {
+                    panic!("not a withdrawal");
+                }
+            };
+            a_fee.cmp(b_fee)
+        });
+        const MAX_WITHDRAWAL_BUNDLE_OUTPUTS: usize = 6000;
+        let bundle: Vec<_> = bundle
+            .into_iter()
+            .take(MAX_WITHDRAWAL_BUNDLE_OUTPUTS)
+            .collect();
+        for (outpoint, _) in &bundle {
+            self.unlocked_withdrawals
+                .delete(txn, outpoint)
+                .into_diagnostic()?;
+            self.locked_withdrawals
+                .put(txn, outpoint, &())
+                .into_diagnostic()?
+        }
+        Ok(())
     }
 
     pub fn get_transaction_fee(&self, txn: &RoTxn, transaction: &Transaction) -> Result<u64> {

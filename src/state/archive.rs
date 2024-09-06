@@ -1,8 +1,8 @@
 use heed::{types::*, Env, RoTxn};
 use heed::{Database, RwTxn};
-use miette::{IntoDiagnostic, Result};
+use miette::{miette, IntoDiagnostic, Result};
 
-use cusf_sidechain_types::{Header, Output, Transaction, HASH_LENGTH};
+use cusf_sidechain_types::{Hashable, Header, Output, Transaction, HASH_LENGTH};
 
 #[derive(Clone)]
 pub struct Archive {
@@ -33,6 +33,22 @@ impl Archive {
             transactions,
             bmm_hashes,
         })
+    }
+
+    pub fn validate_header(&self, txn: &RoTxn, header: &Header) -> Result<()> {
+        let block_hash = header.hash();
+        self.bmm_hashes
+            .get(txn, &block_hash)
+            .into_diagnostic()?
+            .ok_or(miette!("block header wasn't blind merge mined"))?;
+        let prev_block_hash = match self.get_chain_tip(txn)? {
+            Some((_block_number, (header, (_, _)))) => header.hash(),
+            None => [0; HASH_LENGTH],
+        };
+        if header.prev_side_block_hash != prev_block_hash {
+            return Err(miette!("wrong prev_side_block_hash"));
+        }
+        Ok(())
     }
 
     pub fn add_bmm_hashes(&self, txn: &mut RwTxn, bmm_hashes: &[[u8; HASH_LENGTH]]) -> Result<()> {

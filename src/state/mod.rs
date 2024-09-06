@@ -57,7 +57,7 @@ impl State {
     }
 
     pub fn collect_transactions(&self) -> Result<Vec<Transaction>> {
-        let mut txn = self.env.read_txn().into_diagnostic()?;
+        let txn = self.env.read_txn().into_diagnostic()?;
         let transactions = self.mempool.collect_transactions(&txn)?;
         Ok(transactions)
     }
@@ -96,7 +96,12 @@ impl State {
         Ok(())
     }
 
-    fn is_valid(&self, header: &Header, transactions: &[Transaction]) -> Result<()> {
+    fn is_valid(
+        &self,
+        header: &Header,
+        coinbase: &[Output],
+        transactions: &[Transaction],
+    ) -> Result<()> {
         todo!();
     }
 
@@ -143,7 +148,7 @@ impl State {
         if main_block_height != block.block_height {
             return Err(miette!("invalid main block height"));
         }
-        self.archive.add_bmm_hashes(&mut txn, &block.bmm_hashes);
+        self.archive.add_bmm_hashes(&mut txn, &block.bmm_hashes)?;
         self.utxos
             .set_main_block_height(&mut txn, main_block_height)?;
         self.utxos.set_main_chain_tip(&mut txn, &block.block_hash)?;
