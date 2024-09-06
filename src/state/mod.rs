@@ -165,6 +165,7 @@ impl State {
         self.utxos
             .set_main_block_height(&mut txn, main_block_height)?;
         self.utxos.set_main_chain_tip(&mut txn, &block.block_hash)?;
+        self.mempool.collect_transactions(&mut txn)?;
         txn.commit().into_diagnostic()?;
         Ok(())
     }
