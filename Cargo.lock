@@ -580,7 +580,7 @@ dependencies = [
 [[package]]
 name = "cusf_sidechain_proto"
 version = "0.1.0"
-source = "git+https://github.com/LayerTwo-Labs/cusf_sidechain_proto#3ef1413a88db11b656bc3b45ad131847636843b4"
+source = "git+https://github.com/LayerTwo-Labs/cusf_sidechain_proto#d7f998ab8f7c67caff7132b66a37617a78872c77"
 dependencies = [
  "prost",
  "tonic",
@@ -590,7 +590,7 @@ dependencies = [
 [[package]]
 name = "cusf_sidechain_types"
 version = "0.1.0"
-source = "git+https://github.com/LayerTwo-Labs/cusf_sidechain_types#8038a47901761d0743627457975632a6bac8db4f"
+source = "git+https://github.com/LayerTwo-Labs/cusf_sidechain_types#182f5199ffdc9854d2a03dbf8feb40cd2cd9f5aa"
 dependencies = [
  "bincode",
  "bitcoin",

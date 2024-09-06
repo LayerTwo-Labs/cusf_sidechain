@@ -1,8 +1,9 @@
 use crate::node::Node;
 use cusf_sidechain_proto::sidechain::{
-    sidechain_server::Sidechain, ConnectMainBlockRequest, ConnectMainBlockResponse,
-    DisconnectMainBlockRequest, DisconnectMainBlockResponse, GetNextBlockRequest,
-    GetNextBlockResponse, SubmitTransactionRequest, SubmitTransactionResponse,
+    sidechain_server::Sidechain, CollectTransactionsRequest, CollectTransactionsResponse,
+    ConnectMainBlockRequest, ConnectMainBlockResponse, DisconnectMainBlockRequest,
+    DisconnectMainBlockResponse, GetChainTipRequest, GetChainTipResponse, SubmitTransactionRequest,
+    SubmitTransactionResponse,
 };
 use cusf_sidechain_types::Transaction;
 use tonic::{Request, Response, Status};
@@ -32,13 +33,25 @@ impl Sidechain for Plain {
         Ok(Response::new(response))
     }
 
-    async fn get_next_block(
+    async fn collect_transactions(
         &self,
-        request: Request<GetNextBlockRequest>,
-    ) -> Result<Response<GetNextBlockResponse>, Status> {
-        let block = self.node.get_next_block().await.unwrap();
-        let block_bytes = bincode::serialize(&block).unwrap();
-        let response = GetNextBlockResponse { block: block_bytes };
+        request: Request<CollectTransactionsRequest>,
+    ) -> Result<Response<CollectTransactionsResponse>, Status> {
+        let transactions = self.node.collect_transactions().await.unwrap();
+        let transactions = bincode::serialize(&transactions).unwrap();
+        let response = CollectTransactionsResponse { transactions };
+        Ok(Response::new(response))
+    }
+
+    async fn get_chain_tip(
+        &self,
+        request: Request<GetChainTipRequest>,
+    ) -> Result<Response<GetChainTipResponse>, Status> {
+        let (block_height, block_hash) = self.node.get_chain_tip().await.unwrap();
+        let response = GetChainTipResponse {
+            block_height,
+            block_hash: block_hash.to_vec(),
+        };
         Ok(Response::new(response))
     }
 

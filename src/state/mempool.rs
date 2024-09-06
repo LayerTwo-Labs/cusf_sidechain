@@ -7,7 +7,6 @@ use std::time::SystemTime;
 
 #[derive(Clone)]
 pub struct Mempool {
-    pending_transactions: Database<SerdeBincode<[u8; HASH_LENGTH]>, Unit>,
     // Transaction hash -> (transaction, fee, unix timestamp)
     hash_to_transaction_fee_timestamp:
         Database<SerdeBincode<[u8; HASH_LENGTH]>, SerdeBincode<(Transaction, u64, u64)>>,
@@ -20,9 +19,6 @@ impl Mempool {
     pub const NUM_DBS: u32 = 3;
 
     pub fn new(env: &Env) -> Result<Self> {
-        let pending_transactions = env
-            .create_database(Some("pending_transactions"))
-            .into_diagnostic()?;
         let hash_to_transaction_fee_timestamp = env
             .create_database(Some("mempool_hash_to_transaction_fee_timestamps"))
             .into_diagnostic()?;
@@ -30,14 +26,12 @@ impl Mempool {
             .create_database(Some("mempool_fee_to_hashes_sizes_timestamps"))
             .into_diagnostic()?;
         Ok(Self {
-            pending_transactions,
             hash_to_transaction_fee_timestamp,
             fee_to_hashes_sizes_timestamps,
         })
     }
 
     pub fn connect(&self, txn: &mut RwTxn, transactions: &[Transaction]) -> Result<()> {
-        self.pending_transactions.clear(txn).into_diagnostic()?;
         for transaction in transactions {
             let transaction_hash = transaction.hash();
             self.remove(txn, &transaction_hash)?;
@@ -45,21 +39,7 @@ impl Mempool {
         Ok(())
     }
 
-    pub fn get_pending_transactions(&self, txn: &RoTxn) -> Result<Vec<Transaction>> {
-        let mut transactions = vec![];
-        for item in self.pending_transactions.iter(txn).into_diagnostic()? {
-            let (transaction_hash, ()) = item.into_diagnostic()?;
-            let (transaction, _fee, _timestamp) = self
-                .hash_to_transaction_fee_timestamp
-                .get(txn, &transaction_hash)
-                .into_diagnostic()?
-                .ok_or(miette!("transaction not in mempool"))?;
-            transactions.push(transaction);
-        }
-        Ok(transactions)
-    }
-
-    pub fn collect_transactions(&self, txn: &mut RwTxn) -> Result<()> {
+    pub fn collect_transactions(&self, txn: &RoTxn) -> Result<Vec<Transaction>> {
         let mut spent_utxos = HashSet::new();
         let mut transactions = vec![];
         for item in self
@@ -98,13 +78,7 @@ impl Mempool {
                 transactions.push(transaction);
             }
         }
-        let pending_transactions_hashes = transactions.iter().map(|t| t.hash());
-        for pending_transaction_hash in pending_transactions_hashes {
-            self.pending_transactions
-                .put(txn, &pending_transaction_hash, &())
-                .into_diagnostic()?;
-        }
-        Ok(())
+        Ok(transactions)
     }
 
     pub fn submit_transaction(

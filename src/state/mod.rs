@@ -56,9 +56,9 @@ impl State {
         Ok(chain_tip)
     }
 
-    pub fn get_pending_transactions(&self) -> Result<Vec<Transaction>> {
+    pub fn collect_transactions(&self) -> Result<Vec<Transaction>> {
         let mut txn = self.env.read_txn().into_diagnostic()?;
-        let transactions = self.mempool.get_pending_transactions(&mut txn)?;
+        let transactions = self.mempool.collect_transactions(&txn)?;
         Ok(transactions)
     }
 
@@ -100,9 +100,17 @@ impl State {
         todo!();
     }
 
-    fn connect(&self, txn: &mut RwTxn, header: Header, transactions: &[Transaction]) -> Result<()> {
-        self.archive.connect(txn, header, transactions)?;
-        self.utxos.connect(txn, transactions)?;
+    fn connect(
+        &self,
+        txn: &mut RwTxn,
+        block_height: u32,
+        header: Header,
+        coinbase: &[Output],
+        transactions: &[Transaction],
+    ) -> Result<()> {
+        self.archive.connect(txn, header, coinbase, transactions)?;
+        self.utxos
+            .connect(txn, block_height, coinbase, transactions)?;
         self.mempool.connect(txn, transactions)?;
         Ok(())
     }
@@ -130,42 +138,15 @@ impl State {
                 }
             }
         }
-        let (header, transactions) = {
-            let prev_side_block_hash = {
-                if let Some((
-                    _block_number,
-                    (prev_header, (_transaction_range_start, _transaction_range_end)),
-                )) = self.archive.get_chain_tip(&txn)?
-                {
-                    prev_header.hash()
-                } else {
-                    [0; HASH_LENGTH]
-                }
-            };
-            let transactions = self.mempool.get_pending_transactions(&txn)?;
-            let merkle_root = Header::compute_merkle_root(&transactions);
-            let header = Header {
-                prev_side_block_hash,
-                merkle_root,
-            };
-            (header, transactions)
-        };
-        let block_hash = header.hash();
-        for bmm_hash in &block.bmm_hashes {
-            if block_hash == *bmm_hash {
-                self.connect(&mut txn, header, &transactions)?;
-                break;
-            }
-        }
         let mut main_block_height = self.utxos.get_main_block_height(&txn)?;
         main_block_height += 1;
         if main_block_height != block.block_height {
             return Err(miette!("invalid main block height"));
         }
+        self.archive.add_bmm_hashes(&mut txn, &block.bmm_hashes);
         self.utxos
             .set_main_block_height(&mut txn, main_block_height)?;
         self.utxos.set_main_chain_tip(&mut txn, &block.block_hash)?;
-        self.mempool.collect_transactions(&mut txn)?;
         txn.commit().into_diagnostic()?;
         Ok(())
     }

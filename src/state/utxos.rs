@@ -38,7 +38,7 @@ pub struct Utxos {
     main_block_height: Database<SerdeBincode<UnitKey>, SerdeBincode<u32>>,
     main_chain_tip: Database<SerdeBincode<UnitKey>, SerdeBincode<[u8; HASH_LENGTH]>>,
     side_block_height: Database<SerdeBincode<UnitKey>, SerdeBincode<u32>>,
-    refundable_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
+    unlocked_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
     locked_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
 }
 
@@ -59,8 +59,8 @@ impl Utxos {
         let side_block_height = env
             .create_database(Some("side_block_height"))
             .into_diagnostic()?;
-        let refundable_withdrawals = env
-            .create_database(Some("utxos_refundable_withdrawals"))
+        let unlocked_withdrawals = env
+            .create_database(Some("utxos_unlocked_withdrawals"))
             .into_diagnostic()?;
         let locked_withdrawals = env
             .create_database(Some("utxos_locked_withdrawals"))
@@ -71,7 +71,7 @@ impl Utxos {
             main_block_height,
             main_chain_tip,
             side_block_height,
-            refundable_withdrawals,
+            unlocked_withdrawals,
             locked_withdrawals,
         })
     }
@@ -162,7 +162,24 @@ impl Utxos {
     }
 
     /// Performs no validation, assumes that all transactions are valid.
-    pub fn connect(&self, txn: &mut RwTxn, transactions: &[Transaction]) -> Result<()> {
+    pub fn connect(
+        &self,
+        txn: &mut RwTxn,
+        block_height: u32,
+        coinbase: &[Output],
+        transactions: &[Transaction],
+    ) -> Result<()> {
+        const MAX_OUTPUTS_LEN: usize = 256;
+        if coinbase.len() > MAX_OUTPUTS_LEN {
+            return Err(miette!("too many outputs in coinbase"));
+        }
+        for (output_number, output) in coinbase.iter().enumerate() {
+            let outpoint = OutPoint::Coinbase {
+                block_number: block_height,
+                output_number: output_number as u8,
+            };
+            self.utxos.put(txn, &outpoint, &output).into_diagnostic()?;
+        }
         let transaction_number = self
             .transaction_number
             .get(txn, &UnitKey)
@@ -175,6 +192,9 @@ impl Utxos {
             for input in &transaction.inputs {
                 self.utxos.delete(txn, &input).into_diagnostic()?;
             }
+            if transaction.outputs.len() > MAX_OUTPUTS_LEN {
+                return Err(miette!("too many outputs in transaction"));
+            }
             for (output_number, output) in transaction.outputs.iter().enumerate() {
                 let outpoint = OutPoint::Regular {
                     transaction_number,
@@ -182,7 +202,7 @@ impl Utxos {
                 };
                 self.utxos.put(txn, &outpoint, &output).into_diagnostic()?;
                 if matches!(output, Output::Withdrawal { .. }) {
-                    self.refundable_withdrawals
+                    self.unlocked_withdrawals
                         .put(txn, &outpoint, &())
                         .into_diagnostic()?;
                 }
@@ -195,7 +215,8 @@ impl Utxos {
             .into_diagnostic()?;
         let side_block_height = match side_block_height {
             Some(side_block_height) => side_block_height + 1,
-            None => 0,
+            // 0th block is Genesis.
+            None => 0 + 1,
         };
         self.side_block_height
             .put(txn, &UnitKey, &side_block_height)
@@ -204,7 +225,21 @@ impl Utxos {
     }
 
     /// Performs no validation, assumes that all transactions are valid.
-    pub fn disconnect(&self, txn: &mut RwTxn, transactions: &[Transaction]) -> Result<()> {
+    pub fn disconnect(
+        &self,
+        txn: &mut RwTxn,
+        block_height: u32,
+        coinbase: &[Output],
+        transactions: &[Transaction],
+    ) -> Result<()> {
+        todo!();
+    }
+
+    pub fn collect_withdrawals(&self, txn: &mut RwTxn) -> Result<()> {
+        for item in self.locked_withdrawals.iter(txn).into_diagnostic()? {
+            let (outpoint, ()) = item.into_diagnostic()?;
+            let output = self.utxos.get(txn, &outpoint).into_diagnostic()?;
+        }
         todo!();
     }
 

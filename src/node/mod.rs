@@ -35,21 +35,20 @@ impl Node {
         self.state.is_clean()
     }
 
-    pub async fn get_next_block(&self) -> Result<(Header, Vec<Transaction>)> {
-        let transactions = self.state.get_pending_transactions()?;
-        let merkle_root = Header::compute_merkle_root(&transactions);
+    pub async fn collect_transactions(&self) -> Result<Vec<Transaction>> {
+        let transactions = self.state.collect_transactions()?;
+        Ok(transactions)
+    }
+
+    pub async fn get_chain_tip(&self) -> Result<(u32, [u8; HASH_LENGTH])> {
         let chain_tip = self.state.get_chain_tip()?;
-        let prev_side_block_hash = match chain_tip {
-            Some((_block_height, (header, (_transaction_range_start, _transaction_range_end)))) => {
-                header.hash()
+        let (block_height, prev_side_block_hash) = match chain_tip {
+            Some((block_height, (header, (_transaction_range_start, _transaction_range_end)))) => {
+                (block_height, header.hash())
             }
-            None => [0; HASH_LENGTH],
+            None => (0, [0; HASH_LENGTH]),
         };
-        let header = Header {
-            prev_side_block_hash,
-            merkle_root,
-        };
-        Ok((header, transactions))
+        Ok((block_height, prev_side_block_hash))
     }
 
     pub fn submit_transaction(&self, transaction: &Transaction) -> Result<()> {
