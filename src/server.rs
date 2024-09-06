@@ -2,8 +2,8 @@ use crate::node::Node;
 use cusf_sidechain_proto::sidechain::{
     sidechain_server::Sidechain, CollectTransactionsRequest, CollectTransactionsResponse,
     ConnectMainBlockRequest, ConnectMainBlockResponse, DisconnectMainBlockRequest,
-    DisconnectMainBlockResponse, GetChainTipRequest, GetChainTipResponse, SubmitTransactionRequest,
-    SubmitTransactionResponse,
+    DisconnectMainBlockResponse, GetChainTipRequest, GetChainTipResponse, SubmitBlockRequest,
+    SubmitBlockResponse, SubmitTransactionRequest, SubmitTransactionResponse,
 };
 use cusf_sidechain_types::Transaction;
 use tonic::{Request, Response, Status};
@@ -31,6 +31,13 @@ impl Sidechain for Plain {
         self.node.submit_transaction(&transaction).unwrap();
         let response = SubmitTransactionResponse {};
         Ok(Response::new(response))
+    }
+
+    async fn submit_block(
+        &self,
+        request: Request<SubmitBlockRequest>,
+    ) -> Result<Response<SubmitBlockResponse>, Status> {
+        todo!();
     }
 
     async fn collect_transactions(
