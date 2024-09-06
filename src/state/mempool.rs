@@ -1,12 +1,9 @@
-use cusf_sidechain_types::{Hashable, Header, Transaction, BLOCK_SIZE_LIMIT, HASH_LENGTH};
+use cusf_sidechain_types::{Hashable, Transaction, BLOCK_SIZE_LIMIT, HASH_LENGTH};
 use heed::{types::*, Env, RoTxn};
 use heed::{Database, RwTxn};
 use miette::{miette, IntoDiagnostic, Result};
-use rayon::prelude::IntoParallelRefMutIterator;
 use std::collections::HashSet;
 use std::time::SystemTime;
-
-use super::utxos::UnitKey;
 
 #[derive(Clone)]
 pub struct Mempool {
@@ -77,7 +74,7 @@ impl Mempool {
                 if block_size + size as usize > BLOCK_SIZE_LIMIT {
                     break;
                 }
-                let (transaction, fee, timestamp) = self
+                let (transaction, _fee, _timestamp) = self
                     .hash_to_transaction_fee_timestamp
                     .get(txn, &hash)
                     .into_diagnostic()?
