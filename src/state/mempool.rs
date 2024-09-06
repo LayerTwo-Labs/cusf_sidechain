@@ -20,7 +20,7 @@ pub struct Mempool {
 }
 
 impl Mempool {
-    pub const NUM_DBS: u32 = 2;
+    pub const NUM_DBS: u32 = 3;
 
     pub fn new(env: &Env) -> Result<Self> {
         let pending_transactions = env
