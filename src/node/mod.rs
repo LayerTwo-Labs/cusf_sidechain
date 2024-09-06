@@ -2,7 +2,7 @@ use bip300301_enforcer_proto::validator::{
     validator_client::ValidatorClient, GetDepositsRequest, GetMainBlockHeightRequest,
     GetMainChainTipRequest, GetMainChainTipResponse,
 };
-use cusf_sidechain_types::{Hashable, Header, Transaction, HASH_LENGTH};
+use cusf_sidechain_types::{Hashable, Header, MainBlock, Transaction, HASH_LENGTH};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -24,8 +24,6 @@ impl Node {
         let client = ValidatorClient::connect("http://[::1]:50051")
             .await
             .into_diagnostic()?;
-        let transactions = state.collect_transactions()?;
-        dbg!(transactions);
         Ok(Self {
             config,
             state,
@@ -38,7 +36,7 @@ impl Node {
     }
 
     pub async fn get_next_block(&self) -> Result<(Header, Vec<Transaction>)> {
-        let transactions = self.state.collect_transactions()?;
+        let transactions = self.state.get_pending_transactions()?;
         let merkle_root = Header::compute_merkle_root(&transactions);
         let chain_tip = self.state.get_chain_tip()?;
         let prev_side_block_hash = match chain_tip {
@@ -86,6 +84,11 @@ impl Node {
         let main_chain_tip: [u8; HASH_LENGTH] = main_chain_tip.try_into().unwrap();
         self.state
             .load_deposits(&deposits, main_block_height, &main_chain_tip)?;
+        Ok(())
+    }
+
+    pub fn connect_main_block(&self, block: &MainBlock) -> Result<()> {
+        self.state.connect_main_block(block)?;
         Ok(())
     }
 

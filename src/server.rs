@@ -1,7 +1,8 @@
 use crate::node::Node;
 use cusf_sidechain_proto::sidechain::{
-    sidechain_server::Sidechain, GetNextBlockRequest, GetNextBlockResponse,
-    SubmitTransactionRequest, SubmitTransactionResponse,
+    sidechain_server::Sidechain, ConnectMainBlockRequest, ConnectMainBlockResponse,
+    DisconnectMainBlockRequest, DisconnectMainBlockResponse, GetNextBlockRequest,
+    GetNextBlockResponse, SubmitTransactionRequest, SubmitTransactionResponse,
 };
 use cusf_sidechain_types::Transaction;
 use tonic::{Request, Response, Status};
@@ -39,5 +40,19 @@ impl Sidechain for Plain {
         let block_bytes = bincode::serialize(&block).unwrap();
         let response = GetNextBlockResponse { block: block_bytes };
         Ok(Response::new(response))
+    }
+
+    async fn connect_main_block(
+        &self,
+        request: Request<ConnectMainBlockRequest>,
+    ) -> Result<Response<ConnectMainBlockResponse>, Status> {
+        todo!();
+    }
+
+    async fn disconnect_main_block(
+        &self,
+        request: Request<DisconnectMainBlockRequest>,
+    ) -> Result<Response<DisconnectMainBlockResponse>, Status> {
+        todo!();
     }
 }
