@@ -47,9 +47,7 @@ impl Node {
             }
             None => [0; HASH_LENGTH],
         };
-        let prev_main_block_hash = self.state.get_main_chain_tip()?;
         let header = Header {
-            prev_main_block_hash,
             prev_side_block_hash,
             merkle_root,
         };
