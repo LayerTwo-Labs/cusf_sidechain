@@ -2,7 +2,7 @@ use bip300301_enforcer_proto::validator::{
     validator_client::ValidatorClient, GetDepositsRequest, GetMainBlockHeightRequest,
     GetMainChainTipRequest, GetMainChainTipResponse,
 };
-use cusf_sidechain_types::{Hashable, Header, MainBlock, Transaction, HASH_LENGTH};
+use cusf_sidechain_types::{Hashable, Header, MainBlock, Output, Transaction, HASH_LENGTH};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -53,6 +53,16 @@ impl Node {
 
     pub fn submit_transaction(&self, transaction: &Transaction) -> Result<()> {
         self.state.submit_transaction(transaction)?;
+        Ok(())
+    }
+
+    pub fn submit_block(
+        &self,
+        header: Header,
+        coinbase: &[Output],
+        transactions: &[Transaction],
+    ) -> Result<()> {
+        self.state.connect(header, coinbase, transactions)?;
         Ok(())
     }
 

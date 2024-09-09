@@ -105,18 +105,24 @@ impl State {
         todo!();
     }
 
-    fn connect(
+    pub fn connect(
         &self,
-        txn: &mut RwTxn,
-        block_height: u32,
         header: Header,
         coinbase: &[Output],
         transactions: &[Transaction],
     ) -> Result<()> {
-        self.archive.connect(txn, header, coinbase, transactions)?;
+        let mut txn = self.env.write_txn().into_diagnostic()?;
+        let block_height = self
+            .archive
+            .get_chain_tip(&txn)?
+            .map(|(block_height, (_header, (_, _)))| block_height + 1)
+            .unwrap_or(0);
+        self.archive
+            .connect(&mut txn, header, coinbase, transactions)?;
         self.utxos
-            .connect(txn, block_height, coinbase, transactions)?;
-        self.mempool.connect(txn, transactions)?;
+            .connect(&mut txn, block_height, coinbase, transactions)?;
+        self.mempool.connect(&mut txn, transactions)?;
+        txn.commit().into_diagnostic()?;
         Ok(())
     }
 

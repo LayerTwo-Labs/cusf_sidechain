@@ -5,7 +5,7 @@ use cusf_sidechain_proto::sidechain::{
     DisconnectMainBlockResponse, GetChainTipRequest, GetChainTipResponse, SubmitBlockRequest,
     SubmitBlockResponse, SubmitTransactionRequest, SubmitTransactionResponse,
 };
-use cusf_sidechain_types::Transaction;
+use cusf_sidechain_types::{Hashable, Header, Output, Transaction};
 use tonic::{Request, Response, Status};
 
 #[derive(Clone)]
@@ -37,7 +37,16 @@ impl Sidechain for Plain {
         &self,
         request: Request<SubmitBlockRequest>,
     ) -> Result<Response<SubmitBlockResponse>, Status> {
-        todo!();
+        let block_bytes = request.into_inner().block;
+        let (header, coinbase, transactions): (Header, Vec<Output>, Vec<Transaction>) =
+            bincode::deserialize(&block_bytes).unwrap();
+        let block_hash = hex::encode(&header.hash());
+        println!("block {} submitted", block_hash);
+        self.node
+            .submit_block(header, &coinbase, &transactions)
+            .unwrap();
+        let response = SubmitBlockResponse {};
+        Ok(Response::new(response))
     }
 
     async fn collect_transactions(
@@ -66,6 +75,7 @@ impl Sidechain for Plain {
         &self,
         request: Request<ConnectMainBlockRequest>,
     ) -> Result<Response<ConnectMainBlockResponse>, Status> {
+        let main_block = request.into_inner();
         todo!();
     }
 
