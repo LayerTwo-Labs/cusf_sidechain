@@ -1,11 +1,14 @@
 use crate::node::Node;
 use cusf_sidechain_proto::sidechain::{
     sidechain_server::Sidechain, CollectTransactionsRequest, CollectTransactionsResponse,
-    ConnectMainBlockRequest, ConnectMainBlockResponse, DisconnectMainBlockRequest,
+    ConnectMainBlockRequest, ConnectMainBlockResponse, Deposit, DisconnectMainBlockRequest,
     DisconnectMainBlockResponse, GetChainTipRequest, GetChainTipResponse, SubmitBlockRequest,
     SubmitBlockResponse, SubmitTransactionRequest, SubmitTransactionResponse,
 };
-use cusf_sidechain_types::{Hashable, Header, Output, Transaction};
+use cusf_sidechain_types::{
+    Hashable, Header, MainBlock, OutPoint, Output, Transaction, WithdrawalBundleEvent,
+    WithdrawalBundleEventType, HASH_LENGTH,
+};
 use tonic::{Request, Response, Status};
 
 #[derive(Clone)]
@@ -76,7 +79,52 @@ impl Sidechain for Plain {
         request: Request<ConnectMainBlockRequest>,
     ) -> Result<Response<ConnectMainBlockResponse>, Status> {
         let main_block = request.into_inner();
-        todo!();
+        let block_height = main_block.block_height;
+        let block_hash: [u8; HASH_LENGTH] = main_block.block_hash.try_into().unwrap();
+        let deposits = main_block.deposits;
+        let deposits = deposits
+            .into_iter()
+            .map(|deposit| {
+                (
+                    OutPoint::Deposit {
+                        sequence_number: deposit.sequence_number,
+                    },
+                    Output::Regular {
+                        address: deposit.address.try_into().unwrap(),
+                        value: deposit.value,
+                    },
+                )
+            })
+            .collect();
+        let withdrawal_bundle_event =
+            main_block
+                .withdrawal_bundle_event
+                .map(|withdrawal_bundle_event| WithdrawalBundleEvent {
+                    withdrawal_bundle_event_type: match withdrawal_bundle_event
+                        .withdrawal_bundle_event_type
+                    {
+                        0 => WithdrawalBundleEventType::Submitted,
+                        1 => WithdrawalBundleEventType::Failed,
+                        2 => WithdrawalBundleEventType::Succeded,
+                        _ => todo!(),
+                    },
+                    m6id: withdrawal_bundle_event.m6id.try_into().unwrap(),
+                });
+        let bmm_hashes = main_block
+            .bmm_hashes
+            .into_iter()
+            .map(|bmm_hash| bmm_hash.try_into().unwrap())
+            .collect();
+        let block = MainBlock {
+            block_height,
+            block_hash,
+            deposits,
+            withdrawal_bundle_event,
+            bmm_hashes,
+        };
+        self.node.connect_main_block(&block).unwrap();
+        let response = ConnectMainBlockResponse {};
+        Ok(Response::new(response))
     }
 
     async fn disconnect_main_block(

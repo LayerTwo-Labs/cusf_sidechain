@@ -5,10 +5,9 @@ mod utxos;
 use archive::Archive;
 use bip300301_enforcer_proto::validator::Deposit;
 use cusf_sidechain_types::{
-    Hashable, Header, MainBlock, OutPoint, Output, Transaction, WithdrawalBundleEventType,
-    HASH_LENGTH,
+    Header, MainBlock, OutPoint, Output, Transaction, WithdrawalBundleEventType, HASH_LENGTH,
 };
-use heed::{Env, EnvOpenOptions, RwTxn};
+use heed::{Env, EnvOpenOptions};
 use mempool::Mempool;
 use miette::{miette, IntoDiagnostic, Result};
 use std::path::Path;
@@ -112,6 +111,7 @@ impl State {
         transactions: &[Transaction],
     ) -> Result<()> {
         let mut txn = self.env.write_txn().into_diagnostic()?;
+        self.archive.validate_header(&txn, &header)?;
         let block_height = self
             .archive
             .get_chain_tip(&txn)?
@@ -151,6 +151,7 @@ impl State {
         }
         let mut main_block_height = self.utxos.get_main_block_height(&txn)?;
         main_block_height += 1;
+        dbg!(&main_block_height);
         if main_block_height != block.block_height {
             return Err(miette!("invalid main block height"));
         }
