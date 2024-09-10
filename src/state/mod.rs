@@ -10,7 +10,7 @@ use cusf_sidechain_types::{
 use heed::{Env, EnvOpenOptions};
 use mempool::Mempool;
 use miette::{miette, IntoDiagnostic, Result};
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 use utxos::Utxos;
 
 #[derive(Clone)]
@@ -47,6 +47,12 @@ impl State {
         let txn = self.env.read_txn().into_diagnostic()?;
         let chain_tip = self.archive.get_chain_tip(&txn)?;
         Ok(chain_tip)
+    }
+
+    pub fn get_utxo_set(&self) -> Result<HashMap<OutPoint, Output>> {
+        let txn = self.env.read_txn().into_diagnostic()?;
+        let utxos = self.utxos.get_utxo_set(&txn)?;
+        Ok(utxos)
     }
 
     pub fn get_main_chain_tip(&self) -> Result<[u8; HASH_LENGTH]> {

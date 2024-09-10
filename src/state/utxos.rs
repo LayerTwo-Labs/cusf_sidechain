@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH, HASH_LENGTH};
 use heed::{types::*, Env};
@@ -74,6 +74,16 @@ impl Utxos {
             unlocked_withdrawals,
             locked_withdrawals,
         })
+    }
+
+    pub fn get_utxo_set(&self, txn: &RoTxn) -> Result<HashMap<OutPoint, Output>> {
+        let utxos_iter = self.utxos.iter(txn).into_diagnostic()?;
+        let mut utxos = HashMap::new();
+        for item in utxos_iter {
+            let (outpoint, output) = item.into_diagnostic()?;
+            utxos.insert(outpoint, output);
+        }
+        Ok(utxos)
     }
 
     pub fn get_main_block_height(&self, txn: &RoTxn) -> Result<u32> {

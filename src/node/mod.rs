@@ -2,10 +2,12 @@ use bip300301_enforcer_proto::validator::{
     validator_client::ValidatorClient, GetDepositsRequest, GetMainBlockHeightRequest,
     GetMainChainTipRequest, GetMainChainTipResponse,
 };
-use cusf_sidechain_types::{Hashable, Header, MainBlock, Output, Transaction, HASH_LENGTH};
+use cusf_sidechain_types::{
+    Hashable, Header, MainBlock, OutPoint, Output, Transaction, HASH_LENGTH,
+};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 use tonic::transport::Channel;
 
 use crate::state::State;
@@ -49,6 +51,10 @@ impl Node {
             None => (0, [0; HASH_LENGTH]),
         };
         Ok((block_height, prev_side_block_hash))
+    }
+
+    pub fn get_utxo_set(&self) -> Result<HashMap<OutPoint, Output>> {
+        self.state.get_utxo_set()
     }
 
     pub fn submit_transaction(&self, transaction: &Transaction) -> Result<()> {

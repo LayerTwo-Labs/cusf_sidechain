@@ -139,6 +139,9 @@ impl Sidechain for Plain {
         &self,
         request: Request<GetUtxoSetRequest>,
     ) -> Result<Response<GetUtxoSetResponse>, Status> {
-        todo!();
+        let utxos = self.node.get_utxo_set().unwrap();
+        let utxos = bincode::serialize(&utxos).unwrap();
+        let response = GetUtxoSetResponse { utxos };
+        Ok(Response::new(response))
     }
 }
