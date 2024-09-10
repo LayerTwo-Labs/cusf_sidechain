@@ -1,9 +1,10 @@
 use crate::node::Node;
 use cusf_sidechain_proto::sidechain::{
     sidechain_server::Sidechain, CollectTransactionsRequest, CollectTransactionsResponse,
-    ConnectMainBlockRequest, ConnectMainBlockResponse, Deposit, DisconnectMainBlockRequest,
-    DisconnectMainBlockResponse, GetChainTipRequest, GetChainTipResponse, SubmitBlockRequest,
-    SubmitBlockResponse, SubmitTransactionRequest, SubmitTransactionResponse,
+    ConnectMainBlockRequest, ConnectMainBlockResponse, DisconnectMainBlockRequest,
+    DisconnectMainBlockResponse, GetChainTipRequest, GetChainTipResponse, GetUtxoSetRequest,
+    GetUtxoSetResponse, SubmitBlockRequest, SubmitBlockResponse, SubmitTransactionRequest,
+    SubmitTransactionResponse,
 };
 use cusf_sidechain_types::{
     Hashable, Header, MainBlock, OutPoint, Output, Transaction, WithdrawalBundleEvent,
@@ -131,6 +132,13 @@ impl Sidechain for Plain {
         &self,
         request: Request<DisconnectMainBlockRequest>,
     ) -> Result<Response<DisconnectMainBlockResponse>, Status> {
+        todo!();
+    }
+
+    async fn get_utxo_set(
+        &self,
+        request: Request<GetUtxoSetRequest>,
+    ) -> Result<Response<GetUtxoSetResponse>, Status> {
         todo!();
     }
 }
