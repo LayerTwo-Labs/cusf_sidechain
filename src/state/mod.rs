@@ -55,6 +55,14 @@ impl State {
         Ok(utxos)
     }
 
+    pub fn get_withdrawal_bundle(&self) -> Result<bitcoin::Transaction> {
+        let mut txn = self.env.write_txn().into_diagnostic()?;
+        self.utxos.collect_withdrawals(&mut txn)?;
+        let bundle = self.utxos.get_withdrawal_bundle(&txn)?;
+        // txn.commit().into_diagnostic()?;
+        Ok(bundle)
+    }
+
     pub fn get_main_chain_tip(&self) -> Result<[u8; HASH_LENGTH]> {
         let txn = self.env.read_txn().into_diagnostic()?;
         let chain_tip = self.utxos.get_main_chain_tip(&txn)?;

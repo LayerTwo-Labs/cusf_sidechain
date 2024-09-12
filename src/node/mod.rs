@@ -57,6 +57,10 @@ impl Node {
         self.state.get_utxo_set()
     }
 
+    pub fn get_withdrawal_bundle(&self) -> Result<bitcoin::Transaction> {
+        self.state.get_withdrawal_bundle()
+    }
+
     pub fn submit_transaction(&self, transaction: &Transaction) -> Result<()> {
         self.state.submit_transaction(transaction)?;
         Ok(())

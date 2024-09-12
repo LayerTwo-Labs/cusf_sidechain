@@ -1,3 +1,8 @@
+use bitcoin::hashes::Hash;
+use bitcoin::opcodes::all::{
+    OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_PUSHBYTES_20, OP_RETURN,
+};
+use bitcoin::TxOut;
 use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH, HASH_LENGTH};
 use heed::{types::*, Env};
 use heed::{Database, RoTxn, RwTxn};
@@ -213,6 +218,9 @@ impl Utxos {
         for transaction in transactions {
             for input in &transaction.inputs {
                 self.utxos.delete(txn, &input).into_diagnostic()?;
+                self.unlocked_withdrawals
+                    .delete(txn, &input)
+                    .into_diagnostic()?;
             }
             if transaction.outputs.len() > MAX_OUTPUTS_LEN {
                 return Err(miette!("too many outputs in transaction"));
@@ -260,16 +268,61 @@ impl Utxos {
         todo!();
     }
 
-    pub fn get_pending_withdrawal_bundle(&self, txn: &RoTxn) -> Result<()> {
+    pub fn get_withdrawal_bundle(&self, txn: &RoTxn) -> Result<bitcoin::Transaction> {
         let withdrawals = self.locked_withdrawals.iter(txn).into_diagnostic()?;
         let mut outputs = vec![];
+        let mut total_fee = 0;
         for item in withdrawals {
             let (outpoint, _) = item.into_diagnostic()?;
-            let output = self.utxos.get(txn, &outpoint).into_diagnostic()?;
-            outputs.push(output);
+            let output = self
+                .utxos
+                .get(txn, &outpoint)
+                .into_diagnostic()?
+                .ok_or(miette!("no utxo for outpoint"))?;
+            match output {
+                Output::Withdrawal {
+                    main_address,
+                    value,
+                    fee,
+                    ..
+                } => {
+                    let script_pubkey = bitcoin::blockdata::script::Builder::new()
+                        .push_opcode(OP_DUP)
+                        .push_opcode(OP_HASH160)
+                        .push_slice(main_address)
+                        .push_opcode(OP_EQUALVERIFY)
+                        .push_opcode(OP_CHECKSIG)
+                        .into_script();
+                    let output = TxOut {
+                        script_pubkey,
+                        value: bitcoin::Amount::from_sat(value),
+                    };
+                    outputs.push(output);
+                    total_fee += fee;
+                }
+                _ => {
+                    return Err(miette!("output is not a withdrawal"));
+                }
+            };
         }
-        dbg!(&outputs);
-        Ok(())
+        let fee_output = {
+            let f_total_be_bytes = total_fee.to_be_bytes();
+            let script_pubkey = bitcoin::ScriptBuf::from_bytes(
+                [vec![OP_RETURN.to_u8()], f_total_be_bytes.to_vec()].concat(),
+            );
+            TxOut {
+                script_pubkey,
+                value: bitcoin::Amount::ZERO,
+            }
+        };
+        outputs.push(fee_output);
+        let bundle = bitcoin::Transaction {
+            version: bitcoin::transaction::Version::TWO,
+            lock_time: bitcoin::absolute::LockTime::ZERO,
+            input: vec![],
+            output: outputs,
+        };
+        Ok(bundle)
     }
 
     pub fn collect_withdrawals(&self, txn: &mut RwTxn) -> Result<()> {
@@ -279,6 +332,7 @@ impl Utxos {
         let mut bundle = vec![];
         for item in self.unlocked_withdrawals.iter(txn).into_diagnostic()? {
             let (outpoint, ()) = item.into_diagnostic()?;
+            dbg!(&outpoint);
             let output = self
                 .utxos
                 .get(txn, &outpoint)

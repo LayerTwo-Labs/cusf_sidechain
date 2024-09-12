@@ -1,15 +1,17 @@
 use crate::node::Node;
+use bitcoin::consensus::Encodable;
 use cusf_sidechain_proto::sidechain::{
     sidechain_server::Sidechain, CollectTransactionsRequest, CollectTransactionsResponse,
     ConnectMainBlockRequest, ConnectMainBlockResponse, DisconnectMainBlockRequest,
     DisconnectMainBlockResponse, GetChainTipRequest, GetChainTipResponse, GetUtxoSetRequest,
-    GetUtxoSetResponse, SubmitBlockRequest, SubmitBlockResponse, SubmitTransactionRequest,
-    SubmitTransactionResponse,
+    GetUtxoSetResponse, GetWithdrawalBundleRequest, GetWithdrawalBundleResponse,
+    SubmitBlockRequest, SubmitBlockResponse, SubmitTransactionRequest, SubmitTransactionResponse,
 };
 use cusf_sidechain_types::{
     Hashable, Header, MainBlock, OutPoint, Output, Transaction, WithdrawalBundleEvent,
     WithdrawalBundleEventType, HASH_LENGTH,
 };
+use miette::IntoDiagnostic;
 use tonic::{Request, Response, Status};
 
 #[derive(Clone)]
@@ -142,6 +144,19 @@ impl Sidechain for Plain {
         let utxos = self.node.get_utxo_set().unwrap();
         let utxos = bincode::serialize(&utxos).unwrap();
         let response = GetUtxoSetResponse { utxos };
+        Ok(Response::new(response))
+    }
+
+    async fn get_withdrawal_bundle(
+        &self,
+        request: Request<GetWithdrawalBundleRequest>,
+    ) -> Result<Response<GetWithdrawalBundleResponse>, Status> {
+        let bundle = self.node.get_withdrawal_bundle().unwrap();
+        let mut bundle_bytes = vec![];
+        bundle.consensus_encode(&mut bundle_bytes).unwrap();
+        let response = GetWithdrawalBundleResponse {
+            bundle: bundle_bytes,
+        };
         Ok(Response::new(response))
     }
 }
