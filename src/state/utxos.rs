@@ -327,7 +327,8 @@ impl Utxos {
 
     pub fn collect_withdrawals(&self, txn: &mut RwTxn) -> Result<()> {
         if !self.locked_withdrawals.is_empty(txn).into_diagnostic()? {
-            return Err(miette!("there is already a withdrawal bundle pending"));
+            // Withdrawal bundle was already collected.
+            return Ok(());
         }
         let mut bundle = vec![];
         for item in self.unlocked_withdrawals.iter(txn).into_diagnostic()? {
