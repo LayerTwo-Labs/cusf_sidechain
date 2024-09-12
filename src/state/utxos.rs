@@ -1,10 +1,9 @@
-use std::collections::{HashMap, HashSet};
-
 use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH, HASH_LENGTH};
 use heed::{types::*, Env};
 use heed::{Database, RoTxn, RwTxn};
 use miette::{miette, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 /// Unit key. LMDB can't use zero-sized keys, so this encodes to a single byte
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -230,6 +229,9 @@ impl Utxos {
                         .into_diagnostic()?;
                 }
             }
+            self.transaction_number
+                .put(txn, &UnitKey, &transaction_number)
+                .into_diagnostic()?;
             transaction_number += 1;
         }
         let side_block_height = self
@@ -259,7 +261,15 @@ impl Utxos {
     }
 
     pub fn get_pending_withdrawal_bundle(&self, txn: &RoTxn) -> Result<()> {
-        todo!();
+        let withdrawals = self.locked_withdrawals.iter(txn).into_diagnostic()?;
+        let mut outputs = vec![];
+        for item in withdrawals {
+            let (outpoint, _) = item.into_diagnostic()?;
+            let output = self.utxos.get(txn, &outpoint).into_diagnostic()?;
+            outputs.push(output);
+        }
+        dbg!(&outputs);
+        Ok(())
     }
 
     pub fn collect_withdrawals(&self, txn: &mut RwTxn) -> Result<()> {

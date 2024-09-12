@@ -157,7 +157,6 @@ impl State {
         }
         let mut main_block_height = self.utxos.get_main_block_height(&txn)?;
         main_block_height += 1;
-        dbg!(&main_block_height);
         if main_block_height != block.block_height {
             return Err(miette!("invalid main block height"));
         }
