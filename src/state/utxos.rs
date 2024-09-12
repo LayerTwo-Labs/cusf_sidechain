@@ -1,7 +1,4 @@
-use bitcoin::hashes::Hash;
-use bitcoin::opcodes::all::{
-    OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_PUSHBYTES_20, OP_RETURN,
-};
+use bitcoin::opcodes::all::{OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_RETURN};
 use bitcoin::TxOut;
 use cusf_sidechain_types::{OutPoint, Output, Transaction, ADDRESS_LENGTH, HASH_LENGTH};
 use heed::{types::*, Env};
