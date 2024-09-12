@@ -43,11 +43,14 @@ pub struct Utxos {
     main_chain_tip: Database<SerdeBincode<UnitKey>, SerdeBincode<[u8; HASH_LENGTH]>>,
     side_block_height: Database<SerdeBincode<UnitKey>, SerdeBincode<u32>>,
     unlocked_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
+    // At what point are withdrawals locked?
+    // When a mainchain block with M3 is first mined.
     locked_withdrawals: Database<SerdeBincode<OutPoint>, Unit>,
+    bundle_collection_main_height: Database<SerdeBincode<UnitKey>, SerdeBincode<u32>>,
 }
 
 impl Utxos {
-    pub const NUM_DBS: u32 = 7;
+    pub const NUM_DBS: u32 = 8;
 
     pub fn new(env: &Env) -> Result<Self> {
         let utxos = env.create_database(Some("utxos")).into_diagnostic()?;
@@ -69,6 +72,9 @@ impl Utxos {
         let locked_withdrawals = env
             .create_database(Some("utxos_locked_withdrawals"))
             .into_diagnostic()?;
+        let bundle_collection_main_height = env
+            .create_database(Some("bundle_collection_main_height"))
+            .into_diagnostic()?;
         Ok(Self {
             utxos,
             transaction_number,
@@ -77,6 +83,7 @@ impl Utxos {
             side_block_height,
             unlocked_withdrawals,
             locked_withdrawals,
+            bundle_collection_main_height,
         })
     }
 
@@ -330,6 +337,16 @@ impl Utxos {
             // Withdrawal bundle was already collected.
             return Ok(());
         }
+        pub const BUNDLE_FAILURE_GRACE_WINDOW: usize = 24 * 6; // 1 Day
+        pub const MAX_PENDING_BUNDLE_AGE: usize = 10 * 24 * 6; // 10 Days
+        let main_block_height = self
+            .main_block_height
+            .get(txn, &UnitKey)
+            .into_diagnostic()?
+            .ok_or(miette!("no main block height"))?;
+        self.bundle_collection_main_height
+            .put(txn, &UnitKey, &main_block_height)
+            .into_diagnostic()?;
         let mut bundle = vec![];
         for item in self.unlocked_withdrawals.iter(txn).into_diagnostic()? {
             let (outpoint, ()) = item.into_diagnostic()?;
@@ -409,5 +426,17 @@ impl Utxos {
             }
         }
         Ok(addresses)
+    }
+
+    pub fn submit_bundle(&self, txn: &mut RwTxn, m6id: &[u8; HASH_LENGTH]) -> Result<()> {
+        todo!();
+    }
+
+    pub fn succeed_bundle(&self, txn: &mut RwTxn, m6id: &[u8; HASH_LENGTH]) -> Result<()> {
+        todo!();
+    }
+
+    pub fn fail_bundle(&self, txn: &mut RwTxn, m6id: &[u8; HASH_LENGTH]) -> Result<()> {
+        todo!();
     }
 }

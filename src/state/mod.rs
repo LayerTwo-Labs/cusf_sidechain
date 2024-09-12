@@ -153,13 +153,16 @@ impl State {
         if let Some(withdrawal_bundle_event) = &block.withdrawal_bundle_event {
             match withdrawal_bundle_event.withdrawal_bundle_event_type {
                 WithdrawalBundleEventType::Submitted => {
-                    todo!()
+                    self.utxos
+                        .submit_bundle(&mut txn, &withdrawal_bundle_event.m6id)?;
                 }
                 WithdrawalBundleEventType::Succeded => {
-                    todo!()
+                    self.utxos
+                        .succeed_bundle(&mut txn, &withdrawal_bundle_event.m6id)?;
                 }
                 WithdrawalBundleEventType::Failed => {
-                    todo!()
+                    self.utxos
+                        .fail_bundle(&mut txn, &withdrawal_bundle_event.m6id)?;
                 }
             }
         }
