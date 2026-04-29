@@ -1,6 +1,7 @@
+use bip300301_enforcer_proto::enforcer_common::ReverseHex;
+use bip300301_enforcer_proto::validator::block_info::event::Event as BlockEvent;
 use bip300301_enforcer_proto::validator::{
-    validator_client::ValidatorClient, GetDepositsRequest, GetMainBlockHeightRequest,
-    GetMainChainTipRequest, GetMainChainTipResponse,
+    validator_client::ValidatorClient, GetChainTipRequest, GetTwoWayPegDataRequest,
 };
 use cusf_sidechain_types::{
     Hashable, Header, MainBlock, OutPoint, Output, Transaction, HASH_LENGTH,
@@ -11,6 +12,18 @@ use std::{collections::HashMap, path::Path};
 use tonic::transport::Channel;
 
 use crate::state::State;
+
+fn reverse_hex_to_hash(rh: &ReverseHex) -> miette::Result<[u8; HASH_LENGTH]> {
+    let s = rh
+        .hex
+        .as_ref()
+        .ok_or_else(|| miette::miette!("reverse hex missing"))?;
+    let mut bytes = hex::decode(s).map_err(|e| miette::miette!("{e}"))?;
+    bytes.reverse();
+    bytes
+        .try_into()
+        .map_err(|_| miette::miette!("hash must be {} bytes", HASH_LENGTH))
+}
 
 #[derive(Clone)]
 pub struct Node {
@@ -77,30 +90,46 @@ impl Node {
     }
 
     pub async fn initial_sync(&mut self) -> Result<()> {
-        let deposits = self
+        let tip = self
             .client
-            .get_deposits(GetDepositsRequest {
-                sidechain_number: 0,
+            .get_chain_tip(GetChainTipRequest {})
+            .await
+            .into_diagnostic()?
+            .into_inner();
+        let header = tip
+            .block_header_info
+            .ok_or_else(|| miette::miette!("missing chain tip header"))?;
+        let main_block_height = header.height;
+        let end_hash = header
+            .block_hash
+            .clone()
+            .ok_or_else(|| miette::miette!("missing chain tip hash"))?;
+        let main_chain_tip = reverse_hex_to_hash(
+            header
+                .block_hash
+                .as_ref()
+                .ok_or_else(|| miette::miette!("missing chain tip hash"))?,
+        )?;
+        let peg = self
+            .client
+            .get_two_way_peg_data(GetTwoWayPegDataRequest {
+                sidechain_id: Some(0),
+                start_block_hash: None,
+                end_block_hash: Some(end_hash),
             })
             .await
             .into_diagnostic()?
-            .into_inner()
-            .deposits;
-        let main_block_height = self
-            .client
-            .get_main_block_height(GetMainBlockHeightRequest {})
-            .await
-            .into_diagnostic()?
-            .into_inner()
-            .height;
-        let main_chain_tip = self
-            .client
-            .get_main_chain_tip(GetMainChainTipRequest {})
-            .await
-            .into_diagnostic()?
-            .into_inner()
-            .block_hash;
-        let main_chain_tip: [u8; HASH_LENGTH] = main_chain_tip.try_into().unwrap();
+            .into_inner();
+        let deposits: Vec<_> = peg
+            .blocks
+            .into_iter()
+            .filter_map(|item| item.block_info)
+            .flat_map(|info| info.events)
+            .filter_map(|ev| match ev.event {
+                Some(BlockEvent::Deposit(d)) => Some(d),
+                _ => None,
+            })
+            .collect();
         self.state
             .load_deposits(&deposits, main_block_height, &main_chain_tip)?;
         Ok(())
