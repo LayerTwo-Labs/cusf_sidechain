@@ -5,7 +5,8 @@ mod utxos;
 use archive::Archive;
 use bip300301_enforcer_proto::validator::Deposit;
 use cusf_sidechain_types::{
-    Header, MainBlock, OutPoint, Output, Transaction, WithdrawalBundleEventType, HASH_LENGTH,
+    Header, MainBlock, OutPoint, Output, Transaction, WithdrawalBundleEventType, ADDRESS_LENGTH,
+    HASH_LENGTH,
 };
 use heed::{Env, EnvOpenOptions};
 use mempool::Mempool;
@@ -92,12 +93,28 @@ impl State {
     ) -> Result<()> {
         let mut txn = self.env.write_txn().into_diagnostic()?;
         for deposit in deposits {
+            let sequence_number = deposit.sequence_number.unwrap_or(0);
+            let out = deposit
+                .output
+                .as_ref()
+                .ok_or_else(|| miette!("deposit without output"))?;
+            let addr_hex = out
+                .address
+                .as_ref()
+                .and_then(|h| h.hex.as_ref())
+                .ok_or_else(|| miette!("deposit without address hex"))?;
+            let address_bytes: Vec<u8> = hex::decode(addr_hex).into_diagnostic()?;
+            let address: [u8; ADDRESS_LENGTH] = address_bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| miette!("deposit address must be {} bytes", ADDRESS_LENGTH))?;
+            let value = out.value_sats.unwrap_or(0);
             let outpoint = OutPoint::Deposit {
-                sequence_number: deposit.sequence_number,
+                sequence_number,
             };
             let output = Output::Regular {
-                address: deposit.address.clone().try_into().unwrap(),
-                value: deposit.value,
+                address,
+                value,
             };
             self.utxos.add_utxo(&mut txn, &outpoint, &output)?;
             println!("{outpoint} -> {output}");
